@@ -16,10 +16,11 @@ export const getUser = async (req, res) => {
    })
 }
 //registro de usuarios 
-export const createUserRegister = async (req, res) => {
+export const createUserRegister =  (req, res) => {
    const { name } = req.body;
    const { email } = req.body;
    const { password } = req.body;
+   const { confirmpassword } = req.body;
 
    if (!name) {
       return res.status(422).json({ message: 'o nome é obrigatorio' })
@@ -32,11 +33,13 @@ export const createUserRegister = async (req, res) => {
    if (!password) {
       return res.status(422).json({ message: 'a senha é obrigatoria' })
    };
-
+   if (password !== confirmpassword) {
+      return res.status(422).json({ message: 'as senhas não são iguais' })
+   };
 
    let checkEmail = "SELECT * FROM usuarios WHERE email = ?";
 
-   await db.query(checkEmail, [email], async (error, result) => {
+    db.query(checkEmail, [email],  (error, result) => {
       if (error) {
          return res.status(500).json({ error: 'Erro ao consultar o banco de dados' + error });
       }
@@ -45,11 +48,11 @@ export const createUserRegister = async (req, res) => {
          return res.status(400).json({ msg: "email já cadastrado" });
       }
 
-      await bcrypt.hash(password, salt, async (err, hashedPassword) => {
+      bcrypt.hash(password, salt,  (err, hashedPassword) => {
          if (err) return res.status(500).json({ error: 'Erro ao criptografar a senha' });
          let sql = "INSERT INTO usuarios (name, email, password) VALUES (?, ?, ?)";
 
-         await db.query(sql, [name, email, hashedPassword], (error, result) => {
+          db.query(sql, [name, email, hashedPassword], (error, result) => {
             if (error) {
                return error;
             };
@@ -64,7 +67,7 @@ export const createUserRegister = async (req, res) => {
 
 //login usuários
 
-export const loginUsers = async (req, res) => {
+export const loginUsers = (req, res) => {
    const { email, password } = req.body;
 
    if (!email) {
@@ -77,27 +80,29 @@ export const loginUsers = async (req, res) => {
 
    const userQuery = "SELECT * FROM usuarios WHERE email = ?";
 
-   db.query(userQuery, [email], async (error, data) => {
+   db.query(userQuery, [email], (error, data) => {
       
       if (error) {
          return res.status(500).json({ error: "Erro ao logar!" });
       }
-      if (data.length < 1) {
+
+      if (data.length === 0 ) {
          return res.status(401).json({ error: "Falha na autenticação" });
       }
+      
       bcrypt.compare(password, data[0].password, (err, result) => {
-         
          if (err) {
             return res.status(404).json({ error: "Erro ao comparar as senhas" });
          }
-         if (result) {
-            console.log(result)
-            return res.status(200).json({ msg: "Autenticado com sucesso" })
-         }
-         return res.status(401).json({ msg: "Falha na autenticação" })
 
+         if (result) {
+            return res.status(200).json({ msg: "Autenticado com sucesso" })
+         }else{
+            return res.status(401).json({ error: "Falha na autenticação" })
+         }
+        
       })
-      
+   
    })
 }
 
