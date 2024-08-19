@@ -2,6 +2,7 @@ import db from '../database/db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import login from '../middleware/login.js'
 dotenv.config();
 const salt = 12
 
@@ -16,7 +17,7 @@ export const getUser = async (req, res) => {
    })
 }
 //registro de usuarios 
-export const createUserRegister =  (req, res) => {
+export const createUserRegister = (req, res) => {
    const { name } = req.body;
    const { email } = req.body;
    const { password } = req.body;
@@ -39,7 +40,7 @@ export const createUserRegister =  (req, res) => {
 
    let checkEmail = "SELECT * FROM usuarios WHERE email = ?";
 
-    db.query(checkEmail, [email],  (error, result) => {
+   db.query(checkEmail, [email], (error, result) => {
       if (error) {
          return res.status(500).json({ error: 'Erro ao consultar o banco de dados' + error });
       }
@@ -48,11 +49,11 @@ export const createUserRegister =  (req, res) => {
          return res.status(400).json({ msg: "email já cadastrado" });
       }
 
-      bcrypt.hash(password, salt,  (err, hashedPassword) => {
+      bcrypt.hash(password, salt, (err, hashedPassword) => {
          if (err) return res.status(500).json({ error: 'Erro ao criptografar a senha' });
          let sql = "INSERT INTO usuarios (name, email, password) VALUES (?, ?, ?)";
 
-          db.query(sql, [name, email, hashedPassword], (error, result) => {
+         db.query(sql, [name, email, hashedPassword], (error, result) => {
             if (error) {
                return error;
             };
@@ -67,7 +68,7 @@ export const createUserRegister =  (req, res) => {
 
 //login usuários
 
-export const loginUsers = (req, res) => {
+export const loginUsers =  (req, res) => {
    const { email, password } = req.body;
 
    if (!email) {
@@ -81,42 +82,35 @@ export const loginUsers = (req, res) => {
    const userQuery = "SELECT * FROM usuarios WHERE email = ?";
 
    db.query(userQuery, [email], (error, data) => {
-      
+
       if (error) {
          return res.status(500).json({ error: "Erro ao logar!" });
       }
 
-      if (data.length === 0 ) {
+      if (data.length === 0) {
          return res.status(401).json({ error: "Falha na autenticação" });
       }
-      
+
       bcrypt.compare(password, data[0].password, (err, result) => {
          if (err) {
             return res.status(404).json({ error: "Erro ao comparar as senhas" });
          }
 
          if (result) {
-            return res.status(200).json({ msg: "Autenticado com sucesso" })
-         }else{
-            return res.status(401).json({ error: "Falha na autenticação" })
+            const token = jwt.sign({
+               id: result.id,
+               email: result.email
+            },
+               process.env.SECRET,
+               {
+                  expiresIn: "1h"
+               }
+            )
+            return res.status(200).json({ msg: "Usuário logado com sucesso", token })
          }
-        
+         return res.status(401).json({ error: "Falha na autenticação" })
+
       })
-   
-   })
-}
-
-
-export const deleteUser = async (req, res) => {
-   const { id } = req.params
-   let sql = "DELETE FROM usuarios WHERE id = ?";
-
-   await db.query(sql, [id], (error, result) => {
-      if (error) {
-         return error
-      }
-      return res.status(202).send("Usuario Deletado!!")
 
    })
 }
-
